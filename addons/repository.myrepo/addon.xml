@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <addon id="repository.myrepo"
        name="My cooler Repo"
        version="1.0.0"
@@ -6,23 +7,12 @@
     <!-- Repository definition -->
     <extension point="xbmc.addon.repository"
                name="My cooler Repository">
-        <!-- Link to your master index (addons.xml) -->
-        <info compressed="false">
-            repo/addons.xml
-        </info>
-
-        <!-- MD5 checksum of the addons.xml -->
-        <checksum>
-            repo/addons.xml.md5
-        </checksum>
-
-        <!-- Folder that contains all your addon zips -->
-        <datadir zip="true">
-            addons
-        </datadir>
+        <info compressed="false">https://coolitis.github.io/cooler-repo/repo/addons.xml</info>
+        <checksum>https://coolitis.github.io/cooler-repo/repo/addons.xml.md5</checksum>
+        <datadir zip="true">https://coolitis.github.io/cooler-repo/addons/</datadir>
     </extension>
 
-    <!-- Metadata (for cooler UI) -->
+    <!-- Metadata -->
     <extension point="xbmc.addon.metadata">
         <summary lang="en_GB">All-in-One IPTV & Streaming Addons Repository</summary>
         <description lang="en_GB">
