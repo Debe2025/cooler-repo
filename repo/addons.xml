@@ -12,7 +12,7 @@
       <provides>video</provides>
     </extension>
     <extension point="xbmc.addon.metadata">
-      <summary lang="en_GB">Custom IPTV player with multi-M3U & EPG support</summary>
+      <summary lang="en_GB">Custom IPTV player with multi-M3U &amp; EPG support</summary>
       <description lang="en_GB">
         Load multiple .m3u playlists, merge channels, and integrate EPG data.
         Free — depends on user-provided sources.
@@ -41,7 +41,7 @@
       <provides>video</provides>
     </extension>
     <extension point="xbmc.addon.metadata">
-      <summary lang="en_GB">Stream DStv live & on-demand</summary>
+      <summary lang="en_GB">Stream DStv live &amp; on-demand</summary>
       <description lang="en_GB">Requires valid DStv Now login.</description>
       <platform>all</platform>
       <assets>
@@ -161,7 +161,7 @@
       <provides>video</provides>
     </extension>
     <extension point="xbmc.addon.metadata">
-      <summary lang="en_GB">Free movies & TV from Sony</summary>
+      <summary lang="en_GB">Free movies &amp; TV from Sony</summary>
       <description lang="en_GB">Ad-supported.</description>
       <platform>all</platform>
     </extension>
@@ -177,7 +177,7 @@
       <provides>video</provides>
     </extension>
     <extension point="xbmc.addon.metadata">
-      <summary lang="en_GB">Thousands of free movies & shows</summary>
+      <summary lang="en_GB">Thousands of free movies &amp; shows</summary>
       <description lang="en_GB">Ad-supported.</description>
       <platform>all</platform>
     </extension>
@@ -209,7 +209,7 @@
       <provides>video</provides>
     </extension>
     <extension point="xbmc.addon.metadata">
-      <summary lang="en_GB">Public domain & classic films</summary>
+      <summary lang="en_GB">Public domain &amp; classic films</summary>
       <description lang="en_GB">Free from Internet Archive.</description>
       <platform>all</platform>
     </extension>

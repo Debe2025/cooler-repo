@@ -14,10 +14,10 @@
 
     <!-- Metadata -->
     <extension point="xbmc.addon.metadata">
-        <summary lang="en_GB">All-in-One IPTV & Streaming Addons Repository</summary>
+        <summary lang="en_GB">All-in-One IPTV &amp; Streaming Addons Repository</summary>
         <description lang="en_GB">
             Includes IPTV MultiSource, DStv Now, Netflix, YouTube, PBS Live,
-            Samsung TV Plus, Plex, Pluto TV, and more.
+            Samsung TV Plus, Plex, Pluto TV, &amp; more.
         </description>
         <disclaimer lang="en_GB">
             This repository does not host or distribute copyrighted content.
