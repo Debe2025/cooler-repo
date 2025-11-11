@@ -1,28 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="repository.myrepo"
-       name="My cooler Repo"
-       version="1.0.0"
-       provider-name="coolitis">
+       name="My cooler Repo"
+       version="1.0.0"
+       provider-name="coolitis">
 
-    <!-- Repository definition -->
-    <extension point="xbmc.addon.repository"
-               name="My cooler Repository">
-        <info compressed="false">https://coolitis.github.io/cooler-repo/repo/addons.xml</info>
-        <checksum>https://coolitis.github.io/cooler-repo/repo/addons.xml.md5</checksum>
-        <datadir zip="true">https://coolitis.github.io/cooler-repo/addons/</datadir>
-    </extension>
+        <extension point="xbmc.addon.repository"
+               name="My cooler Repository">
+        
+                <dir minversion="18.0.0" maxversion="21.9.0">
+            <info compressed="false">https://coolitis.github.io/cooler-repo/repo/addons.xml</info>
+            <checksum>https://coolitis.github.io/cooler-repo/repo/addons.xml.md5</checksum>
+            <datadir zip="true">https://coolitis.github.io/cooler-repo/addons/</datadir>
+        </dir>
+            </extension>
 
-    <!-- Metadata -->
-    <extension point="xbmc.addon.metadata">
-        <summary lang="en_GB">All-in-One IPTV &amp; Streaming Addons Repository</summary>
-        <description lang="en_GB">
-            Includes IPTV MultiSource, DStv Now, Netflix, YouTube, PBS Live,
-            Samsung TV Plus, Plex, Pluto TV, &amp; more.
-        </description>
-        <disclaimer lang="en_GB">
-            This repository does not host or distribute copyrighted content.
-        </disclaimer>
-        <language>en</language>
-        <platform>all</platform>
-    </extension>
+        <extension point="xbmc.addon.metadata">
+        <summary lang="en_GB">All-in-One IPTV &amp; Streaming Addons Repository</summary>
+        <description lang="en_GB">
+            Includes IPTV MultiSource, DStv Now, Netflix, YouTube, PBS Live,
+            Samsung TV Plus, Plex, Pluto TV, &amp; more.
+        </description>
+        <disclaimer lang="en_GB">
+            This repository does not host or distribute copyrighted content.
+        </disclaimer>
+        <language>en</language>
+        <platform>all</platform>
+    </extension>
 </addon>
