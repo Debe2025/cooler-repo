@@ -1,13 +1,13 @@
-<addon id="plugin.video.iptv"
-       name="IPTV Channels"
+<addon id="plugin.video.free-movies"
+       name="Free Movies"
        version="1.0.0"
-       provider-name="coolitis">
+       provider-name="Debe">
     <extension point="xbmc.python.pluginsource" library="default.py">
         <provides>video</provides>
     </extension>
     <extension point="xbmc.addon.metadata">
-        <summary>IPTV addon with sample channels</summary>
-        <description>Streams sample IPTV M3U8 channels.</description>
+        <summary>Sample Free Movies Addon</summary>
+        <description>Watch freely available movies (for testing).</description>
         <platform>all</platform>
     </extension>
 </addon>

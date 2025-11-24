@@ -4,88 +4,60 @@ import re
 
 # --- Configuration ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(BASE_DIR, 'repo')
-
-# Define the directories to scan for add-ons (including 'addons' folder)
-# The script will scan the root (BASE_DIR) and the 'addons' sub-directory.
-SCAN_DIRS = [BASE_DIR, os.path.join(BASE_DIR, 'addons')]
+OUTPUT_DIR = BASE_DIR                      # generates in root (perfect)
+ADDONS_ROOT = BASE_DIR                     # now scans the ROOT for addon folders!
 # --- End Configuration ---
 
 def create_addons_xml():
-    """
-    Scans the defined directories for add-on folders, reads their addon.xml,
-    and generates the main addons.xml file.
-    """
-    print("--- Starting Repository Index Generation ---")
-    
+    print("--- Generating addons.xml & addons.xml.md5 (scans ROOT) ---")
     addons_xml_content = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<addons>\n'
     addons_processed = 0
 
-    # 1. Iterate through all defined scanning directories
-    for scan_dir in SCAN_DIRS:
-        if not os.path.exists(scan_dir):
+    for item in os.listdir(ADDONS_ROOT):
+        item_path = os.path.join(ADDONS_ROOT, item)
+
+        # Skip files and unwanted folders
+        if not os.path.isdir(item_path):
+            continue
+        if item.startswith(('.', 'repo')) or item == 'addons':   # skip old junk
             continue
 
-        # 2. Iterate through all items in the current scanning directory
-        for item in os.listdir(scan_dir):
-            item_path = os.path.join(scan_dir, item)
-            
-            # Check if the item is a directory and not the output/hidden directories
-            if os.path.isdir(item_path) and item not in ('repo', 'addons') and not item.startswith('.'):
-                addon_xml_path = os.path.join(item_path, 'addon.xml')
-                
-                # Check if addon.xml exists in the folder
-                if os.path.exists(addon_xml_path):
-                    print(f"Processing add-on: {item}")
-                    try:
-                        with open(addon_xml_path, 'r', encoding='utf-8') as f:
-                            addon_xml_data = f.read()
-                            
-                        # Remove the XML header and clean up
-                        clean_data = re.sub(r'<\?xml.*?\?>', '', addon_xml_data, flags=re.DOTALL)
-                        clean_data = clean_data.strip()
-                        
-                        addons_xml_content += f'{clean_data}\n'
-                        addons_processed += 1
-                        
-                    except Exception as e:
-                        print(f"Error reading addon.xml for {item}: {e}")
-    
-    # 3. Finalize and write the output files
+        addon_xml_path = os.path.join(item_path, 'addon.xml')
+        if os.path.exists(addon_xml_path):
+            print(f"  → Adding: {item}")
+            try:
+                with open(addon_xml_path, 'r', encoding='utf-8') as f:
+                    data = f.read()
+                clean = re.sub(r'<\?xml.*?\?>', '', data, flags=re.DOTALL).strip()
+                addons_xml_content += f"{clean}\n\n"
+                addons_processed += 1
+            except Exception as e:
+                print(f"    Failed {item}: {e}")
+
     if addons_processed == 0:
-        print("\n⚠️ Warning: No add-on folders with an addon.xml file were found. Check your directory structure.")
+        print("No addon folders found! Check structure.")
         return
 
     addons_xml_content += '</addons>\n'
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    
-    output_xml_path = os.path.join(OUTPUT_DIR, 'addons.xml')
-    try:
-        with open(output_xml_path, 'w', encoding='utf-8') as f:
-            f.write(addons_xml_content)
-        print(f"\nSuccessfully created addons.xml at: {output_xml_path}")
-        
-        generate_md5(output_xml_path)
-        
-    except Exception as e:
-        print(f"Error writing output files: {e}")
+
+    # Write to root
+    xml_path = os.path.join(OUTPUT_DIR, 'addons.xml')
+    with open(xml_path, 'w', encoding='utf-8') as f:
+        f.write(addons_xml_content)
+    print(f"addons.xml created → {addons_processed} addons")
+
+    generate_md5(xml_path)
 
 def generate_md5(file_path):
-    """Generates an MD5 checksum for a given file and writes it to a new file."""
-    try:
-        with open(file_path, 'rb') as f:
-            data = f.read()
-        
-        md5_hash = hashlib.md5(data).hexdigest()
-        
-        md5_path = f"{file_path}.md5"
-        with open(md5_path, 'w', encoding='utf-8') as f:
-            f.write(md5_hash)
-            
-        print(f"Successfully created addons.xml.md5 at: {md5_path}")
-        
-    except Exception as e:
-        print(f"Error generating MD5 checksum: {e}")
+    hash_md5 = hashlib.md5()
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    md5_path = file_path + '.md5'
+    with open(md5_path, 'w', encoding='utf-8') as f:
+        f.write(hash_md5.hexdigest())
+    print(f"addons.xml.md5 created → {hash_md5.hexdigest()}")
 
 if __name__ == '__main__':
     create_addons_xml()
+    print("\nDone! Your repo now includes service.cooler.autosetup automatically.")

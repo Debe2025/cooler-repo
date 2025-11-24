@@ -1,6 +1,0 @@
-<requires>
-    <import addon="xbmc.python" version="3.0.0" />
-    <import addon="script.module.slyguy" version="1.0.0" />
-    <import addon="inputstream.adaptive" version="2.0.0" />
-    <import addon="inputstream.helper" version="0.5.0" />
-</requires>

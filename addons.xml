@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addons>
+<requires>
+    <import addon="xbmc.python" version="3.0.0" />
+    <import addon="script.module.slyguy" version="1.0.0" />
+    <import addon="inputstream.adaptive" version="2.0.0" />
+    <import addon="inputstream.helper" version="0.5.0" />
+</requires>
+
+<requires>
+    <import addon="xbmc.python" version="3.0.0" />
+    <import addon="script.module.slyguy" version="1.0.0" />
+    <import addon="inputstream.adaptive" version="2.0.0" />
+    <import addon="inputstream.helper" version="0.5.0" />
+</requires>
+
+<addon id="plugin.video.free-movies"
+       name="Free Movies"
+       version="1.0.0"
+       provider-name="Debe">
+    <extension point="xbmc.python.pluginsource" library="default.py">
+        <provides>video</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>Sample Free Movies Addon</summary>
+        <description>Watch freely available movies (for testing).</description>
+        <platform>all</platform>
+    </extension>
+</addon>
+
+<addon id="plugin.video.iptv"
+       name="IPTV Channels"
+       version="1.0.0"
+       provider-name="Debe">
+    <extension point="xbmc.python.pluginsource" library="default.py">
+        <provides>video</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>IPTV addon with sample channels</summary>
+        <description>Streams sample IPTV M3U8 channels.</description>
+        <platform>all</platform>
+    </extension>
+</addon>
+
+<requires>
+    <import addon="xbmc.python" version="3.0.0" />
+    <import addon="script.module.slyguy" version="1.0.0" />
+    <import addon="inputstream.adaptive" version="2.0.0" />
+    <import addon="inputstream.helper" version="0.5.0" />
+</requires>
+
+<addon id="service.cooler.autosetup"
+       name="Cooler Auto Setup Service"
+       version="1.0.0"
+       provider-name="Debe">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0"/>
+    </requires>
+    <extension point="xbmc.service" library="service.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>One-time auto-setup for Cooler Build (runs once, then deletes)</summary>
+        <description>Sets up AuraMOD skin, addons, widgets, EPG, and self-start into Live TV.</description>
+        <platform>all</platform>
+        <disclaimer>Requires internet for AuraMOD download.</disclaimer>
+    </extension>
+</addon>
+
+</addons>
