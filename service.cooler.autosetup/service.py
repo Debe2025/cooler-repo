@@ -8,7 +8,7 @@ log = lambda msg: xbmc.log(f'[Cooler AutoSetup]: {msg}', xbmc.LOGINFO)
 notify = lambda msg: xbmc.executebuiltin(f'Notification(Cooler Build,{msg},8000)')
 
 # URLs
-AURAMOD_URL = 'https://github.com/skyfsza/skin.auramod/archive/refs/heads/Omega.zip'
+AURAMOD_URL = 'https://github.com/skyfsza/skin.auramod/archive/refs/heads/omega.zip'
 CASTAGNAIT_REPO = 'https://castagnait.github.io/repo/repository.castagnait-2.0.1.zip'
 
 def download(url, dest):
