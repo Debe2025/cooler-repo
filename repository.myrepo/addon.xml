@@ -1,19 +1,20 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<addon id="repository.myrepo" version="1.0.0" name="My Cooler Repo" provider-name="Debe">
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="repository.myrepo" name="My Cooler Repo" version="1.0.0" provider-name="Debe">
     <extension point="xbmc.addon.repository" name="My Cooler Repo">
-        <dir minversion="21.0.0" maxversion="21.9.9">
+        <dir>
             <info compressed="false">https://debe2025.github.io/cooler-repo/addons.xml</info>
             <checksum>https://debe2025.github.io/cooler-repo/addons.xml.md5</checksum>
             <datadir zip="true">https://debe2025.github.io/cooler-repo/zips/</datadir>
+            <haslang>en</haslang>
         </dir>
     </extension>
-
     <extension point="xbmc.addon.metadata">
-        <summary>My personal Kodi repository</summary>
-        <description>Contains DStv Now, Samsung TV Plus and auto-setup service</description>
+        <summary>Custom repo with DStv Now, Samsung TV Plus, and auto-setup</summary>
+        <description>One-click setup for live TV channels, Netflix, and free content with auto-start to EPG.</description>
         <platform>all</platform>
         <assets>
             <icon>cooler-42549_640.png</icon>
         </assets>
+        <news>v1.0.0 - Perfect auto-setup build</news>
     </extension>
 </addon>
