@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import xbmc
-import xbmcgui
 import xbmcvfs
 import xbmcaddon
 import os
@@ -12,12 +11,10 @@ import shutil
 import threading
 
 ADDON_ID = 'service.cooler.autosetup'
-CASTAGNAIT_REPO = 'https://castagnait.github.io/repository.castagnait/repository.castagnait-1.0.0.zip'
 AURAMOD_GITHUB_API = 'https://api.github.com/repos/SerpentDrago/skin.auramod/releases/latest'
+NETFLIX_GITHUB_API = 'https://api.github.com/repos/CastagnaIT/plugin.video.netflix/releases/latest'
 TEMP_DIR = xbmcvfs.translatePath('special://temp/')
-UPDATE_INTERVAL_HOURS = 6  # Check for updates every 6 hours
-
-# Track whether an update requires a restart
+UPDATE_INTERVAL_HOURS = 6
 restart_required = False
 
 def log(msg, level=xbmc.LOGINFO):
@@ -43,180 +40,141 @@ def wait_for_addon(addon_id, timeout=30):
         time.sleep(1)
     return False
 
-def get_latest_auramod_release():
-    try:
-        with urllib.request.urlopen(AURAMOD_GITHUB_API) as response:
-            data = json.load(response)
-            latest_version = data.get('tag_name')
-            download_url = None
-            for asset in data.get('assets', []):
-                if asset['name'].endswith('.zip'):
-                    download_url = asset['browser_download_url']
-                    break
-            return latest_version, download_url
-    except Exception as e:
-        log(f'Failed to fetch latest AuraMOD release: {e}', xbmc.LOGERROR)
-        return None, None
-
-def get_installed_auramod_version():
-    try:
-        addon = xbmcaddon.Addon('skin.auramod')
-        return addon.getAddonInfo('version')
-    except:
-        return None
-
 def install_zip(zip_path):
     if os.path.exists(zip_path):
         xbmc.executebuiltin(f'InstallFromZip({zip_path})')
         return True
     return False
 
+# ────── AuraMOD ──────
+def get_latest_auramod_release():
+    try:
+        with urllib.request.urlopen(AURAMOD_GITHUB_API) as response:
+            data = json.load(response)
+            tag = data.get('tag_name')
+            for asset in data.get('assets', []):
+                if asset['name'].endswith('.zip'):
+                    return tag, asset['browser_download_url']
+            return None, None
+    except Exception as e:
+        log(f'AuraMOD API failed: {e}', xbmc.LOGERROR)
+        return None, None
+
+def get_installed_auramod_version():
+    try:
+        return xbmcaddon.Addon('skin.auramod').getAddonInfo('version')
+    except:
+        return None
+
 def auto_update_auramod():
     global restart_required
-    latest_version, download_url = get_latest_auramod_release()
-    installed_version = get_installed_auramod_version()
-    log(f'Installed AuraMOD: {installed_version}, Latest: {latest_version}')
-    if latest_version is None or download_url is None:
-        log('Could not get latest AuraMOD release, skipping update...')
+    tag, url = get_latest_auramod_release()
+    current = get_installed_auramod_version()
+    if not tag or not url or current == tag:
         return False
-    if installed_version != latest_version:
-        notify(f'Updating AuraMOD to {latest_version}...', 5000)
-        auramod_zip = os.path.join(TEMP_DIR, 'auramod.zip')
-        if download(download_url, auramod_zip):
-            if install_zip(auramod_zip):
-                log(f'AuraMOD updated successfully to {latest_version}!')
-                xbmcvfs.delete(auramod_zip)
-                restart_required = True  # Only set restart if updated
-                return True
-            else:
-                log('Failed to install AuraMOD from zip.', xbmc.LOGERROR)
-        else:
-            log('Failed to download AuraMOD zip.', xbmc.LOGERROR)
-    else:
-        log('AuraMOD is already up-to-date.')
+    notify(f'Updating AuraMOD to {tag}...', 6000)
+    path = os.path.join(TEMP_DIR, 'auramod.zip')
+    if download(url, path) and install_zip(path):
+        xbmcvfs.delete(path)
+        restart_required = True
+        return True
     return False
 
+# ────── Netflix ──────
+def install_or_update_netflix():
+    try:
+        with urllib.request.urlopen(NETFLIX_GITHUB_API) as r:
+            data = json.load(r)
+            tag = data.get('tag_name')
+            zip_url = next((a['browser_download_url'] for a in data.get('assets', []) if a['name'].endswith('.zip')), None)
+            if not tag or not zip_url:
+                raise Exception("No ZIP found")
+    except Exception as e:
+        log(f'Netflix API failed: {e}')
+        notify('Install Netflix manually from GitHub releases.', 8000)
+        return False
+
+    current = None
+    try:
+        current = xbmcaddon.Addon('plugin.video.netflix').getAddonInfo('version')
+    except: pass
+
+    if current == tag:
+        return False
+
+    notify(f'Installing/Updating Netflix to {tag}...', 6000)
+    path = os.path.join(TEMP_DIR, 'plugin.video.netflix.zip')
+    if download(zip_url, path) and install_zip(path):
+        wait_for_addon('plugin.video.netflix', 30)
+        xbmcvfs.delete(path)
+        return True
+    return False
+
+# ────── Periodic updater ──────
 def periodic_update_check():
     while True:
         try:
-            log('Checking for AuraMOD updates...')
-            updated = auto_update_auramod()
-            if updated:
-                notify('AuraMOD updated! Restart Kodi to apply changes.', 7000)
-        except Exception as e:
-            log(f'Error during periodic update: {e}', xbmc.LOGERROR)
+            auto_update_auramod()
+        except: pass
         time.sleep(UPDATE_INTERVAL_HOURS * 3600)
 
+# ────── Main setup ──────
 def main_setup():
     log('Starting Cooler Auto Setup...')
-    notify('Setting up your perfect TV build... (2 min)', 10000)
+    notify('Setting up your perfect TV build... (2-3 min)', 10000)
 
-    # Enable unknown sources
     xbmc.executebuiltin('SetSetting(addons.unknownsources, true)')
 
-    # Install CastagnaIT repo
-    log('Installing CastagnaIT repo...')
-    castagna_zip = os.path.join(TEMP_DIR, 'repository.castagnait.zip')
-    if download(CASTAGNAIT_REPO, castagna_zip):
-        install_zip(castagna_zip)
-        if wait_for_addon('repository.castagnait', 20):
-            xbmc.executebuiltin('InstallFromRepository(repository.castagnait, plugin.video.netflix)')
-            wait_for_addon('plugin.video.netflix', 15)
+    # 1. Install your bundled addons FIRST (critical!)
+    bundled = ['plugin.video.dstv.now', 'samsung.tv.plus', 'script.module.slyguy', 'slyguy.dependencies', 'script.module.inputstreamhelper']
+    for a in bundled:
+        xbmc.executebuiltin(f'InstallFromRepository(repository.myrepo, {a})')
+        wait_for_addon(a, 15)
 
-    # Install common official addons
-    log('Installing official addons...')
-    common_addons = [
-        'plugin.video.youtube',
-        'plugin.video.tubi',
-        'plugin.video.crackle',
-        'pvr.plutotv',
-        'plugin.video.popcornflix',
-        'plugin.video.internetarchive'
-    ]
-    for addon in common_addons:
-        xbmc.executebuiltin(f'InstallAddon({addon})')
-        wait_for_addon(addon, 10)
+    # 2. Netflix (latest from GitHub)
+    install_or_update_netflix()
 
-    # Initial AuraMOD install/update
+    # 3. Official addons
+    for a in ['plugin.video.youtube', 'plugin.video.tubi', 'plugin.video.crackle', 'pvr.plutotv', 'plugin.video.popcornflix', 'plugin.video.internetarchive']:
+        xbmc.executebuiltin(f'InstallAddon({a})')
+        wait_for_addon(a, 10)
+
+    # 4. AuraMOD
     auto_update_auramod()
 
-    # Switch to AuraMOD and configure widgets
+    # 5. Skin switch + widgets
     if wait_for_addon('skin.auramod', 20):
-        xbmc.executebuiltin('ActivateWindow(Home)')
-        time.sleep(5)
         xbmc.executebuiltin('Skin.SetString(Skin.Current, skin.auramod)')
-        time.sleep(10)
-        xbmc.executebuiltin('Skin.SetBool(HomeWidgetLiveTV, true)')
-        xbmc.executebuiltin('Skin.SetBool(HomeWidgetMovies, true)')
-        xbmc.executebuiltin('Skin.SetBool(HomeWidgetTVShows, true)')
+        time.sleep(8)
+        for s in ['HomeWidgetLiveTV', 'HomeWidgetMovies', 'HomeWidgetTVShows']:
+            xbmc.executebuiltin(f'Skin.SetBool({s}, true)')
 
-    # Enable PVR/EPG/Library
+    # 6. PVR & startup
     xbmc.executebuiltin('PVR.SetSetting(epg, true)')
-    xbmc.executebuiltin('PVR.SetSetting(channelmanager, true)')
     xbmc.executebuiltin('SetSetting(videolibrary.updateonstartup, true)')
 
-    # Activate live addons for EPG
-    for addon in ['samsung.tv.plus', 'pvr.plutotv']:
-        xbmc.executebuiltin(f'RunAddon({addon})')
+    for a in ['samsung.tv.plus', 'pvr.plutotv']:
+        xbmc.executebuiltin(f'RunAddon({a})')
         time.sleep(3)
-        xbmc.executebuiltin('ActivateWindow(Home)')
 
-    # Drop self-start files to userdata
+    # 7. Self-start to TV Channels
     userdata = xbmcvfs.translatePath('special://profile/')
-    autoexec_content = '''import xbmc
-import time
-time.sleep(10)
-xbmc.executebuiltin('ActivateWindow(TVChannels)')'''
-    advanced_content = '''<advancedsettings>
-    <lookandfeel>
-        <startupwindow>tvchannels</startupwindow>
-    </lookandfeel>
-    <epg>
-        <epgupdate>5</epgupdate>
-    </epg>
-    <video>
-        <libraryautoupdate>true</libraryautoupdate>
-    </video>
-    <pvr>
-        <continueonstartup>true</continueonstartup>
-    </pvr>
-</advancedsettings>'''
-
     with open(os.path.join(userdata, 'autoexec.py'), 'w') as f:
-        f.write(autoexec_content)
+        f.write('import xbmc, time\ntime.sleep(10)\nxbmc.executebuiltin("ActivateWindow(TVChannels)")')
     with open(os.path.join(userdata, 'advancedsettings.xml'), 'w') as f:
-        f.write(advanced_content)
+        f.write('<advancedsettings><lookandfeel><startupwindow>tvchannels</startupwindow></lookandfeel><epg><epgupdate>5</epgupdate></epg><video><libraryautoupdate>true</libraryautoupdate></video></advancedsettings>')
 
-    log('Self-start files placed!')
+    log('Cooler Build complete!')
 
-    # Clean temp files
-    for f in ['repository.castagnait.zip', 'auramod.zip']:
-        temp_file = os.path.join(TEMP_DIR, f)
-        if xbmcvfs.exists(temp_file):
-            xbmcvfs.delete(temp_file)
-
-def cleanup_service():
-    addon_path = xbmcvfs.translatePath(f'special://home/addons/{ADDON_ID}')
-    if os.path.exists(addon_path):
-        shutil.rmtree(addon_path)
-    xbmc.executebuiltin(f'UninstallAddon({ADDON_ID})')
-    log('Service cleanup done!')
-
+# ────── Run ──────
 def run_service():
     main_setup()
-
-    # Start periodic update checker in background
-    updater_thread = threading.Thread(target=periodic_update_check, daemon=True)
-    updater_thread.start()
-
-    # Restart Kodi only if AuraMOD was updated
+    threading.Thread(target=periodic_update_check, daemon=True).start()
     global restart_required
     if restart_required:
         notify('Restarting Kodi to apply AuraMOD update...', 5000)
-        time.sleep(3)
+        time.sleep(4)
         xbmc.executebuiltin('RestartApp')
-
-    # Keep service alive
     while True:
         time.sleep(60)
 
