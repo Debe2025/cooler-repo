@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import xbmc
+import xbmcgui
 import xbmcvfs
 import xbmcaddon
 import os
@@ -125,7 +126,7 @@ def main_setup():
 
     xbmc.executebuiltin('SetSetting(addons.unknownsources, true)')
 
-    # 1. Install your bundled addons FIRST (critical!)
+    # 1. Install bundled addons FIRST (fixes "unknown addon" errors)
     bundled = ['plugin.video.dstv.now', 'samsung.tv.plus', 'script.module.slyguy', 'slyguy.dependencies', 'script.module.inputstreamhelper']
     for a in bundled:
         xbmc.executebuiltin(f'InstallFromRepository(repository.myrepo, {a})')
@@ -153,11 +154,12 @@ def main_setup():
     xbmc.executebuiltin('PVR.SetSetting(epg, true)')
     xbmc.executebuiltin('SetSetting(videolibrary.updateonstartup, true)')
 
+    # 7. Activate live addons for EPG (now they exist)
     for a in ['samsung.tv.plus', 'pvr.plutotv']:
         xbmc.executebuiltin(f'RunAddon({a})')
         time.sleep(3)
 
-    # 7. Self-start to TV Channels
+    # 8. Self-start to TV Channels
     userdata = xbmcvfs.translatePath('special://profile/')
     with open(os.path.join(userdata, 'autoexec.py'), 'w') as f:
         f.write('import xbmc, time\ntime.sleep(10)\nxbmc.executebuiltin("ActivateWindow(TVChannels)")')
