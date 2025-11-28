@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+Hardened service.cooler.autosetup
+- robust download/install for GitHub release zips (Netflix + AuraMOD)
+- fallback extract+rename if InstallFromZip doesn't make addon visible
+- forces Kodi to rescan addons and waits for addon visibility
+"""
 import xbmc
 import xbmcgui
 import xbmcvfs
@@ -7,14 +13,18 @@ import xbmcaddon
 import os
 import time
 import urllib.request
+import urllib.error
+import urllib.parse
 import json
 import shutil
 import threading
+import zipfile
 
 ADDON_ID = 'service.cooler.autosetup'
 NETFLIX_GITHUB_API = 'https://api.github.com/repos/CastagnaIT/plugin.video.netflix/releases/latest'
 AURAMOD_GITHUB_API = 'https://api.github.com/repos/SerpentDrago/skin.auramod/releases/latest'
 TEMP_DIR = xbmcvfs.translatePath('special://temp/')
+ADDONS_DIR = xbmcvfs.translatePath('special://home/addons/')
 UPDATE_INTERVAL_HOURS = 6
 restart_required = False
 
@@ -27,18 +37,34 @@ def notify(msg, time_ms=5000):
     xbmc.executebuiltin(f'Notification(Cooler Build, {msg}, {time_ms})')
 
 
-def download(url, local_path):
+def translate(p):
+    return xbmcvfs.translatePath(p)
+
+
+def download(url, local_path_special):
     """
-    Download URL to local_path (Kodi can handle special://).
+    Download URL to local special:// path. Returns translated real path or None.
     """
     try:
-        translated = xbmcvfs.translatePath(local_path)
+        translated = translate(local_path_special)
+        parent = os.path.dirname(translated)
+        if parent and not os.path.isdir(parent):
+            os.makedirs(parent, exist_ok=True)
         log(f'Downloading {url} -> {translated}')
-        urllib.request.urlretrieve(url, translated)
-        return True
+        # ensure URL is well encoded
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            with open(translated, 'wb') as out:
+                shutil.copyfileobj(resp, out)
+        log(f'Download complete: {translated}')
+        return translated
+    except urllib.error.HTTPError as e:
+        log(f'HTTPError {e.code} for {url}', xbmc.LOGERROR)
+    except urllib.error.URLError as e:
+        log(f'URLError {e.reason} for {url}', xbmc.LOGERROR)
     except Exception as e:
         log(f'Download failed: {e}', xbmc.LOGERROR)
-        return False
+    return None
 
 
 def wait_for_addon(addon_id, timeout=30):
@@ -50,21 +76,102 @@ def wait_for_addon(addon_id, timeout=30):
     return False
 
 
-def install_zip(zip_path):
+def install_from_zip_path(zip_real_path):
     """
-    Wrapper for InstallFromZip with safe path.
+    Call Kodi InstallFromZip with a real path. Return True if called.
     """
-    translated = xbmcvfs.translatePath(zip_path)
-    if xbmcvfs.exists(translated) or os.path.exists(translated):
-        xbmc.executebuiltin(f'InstallFromZip({translated})')
-        return True
-    log(f'Zip not found: {translated}', xbmc.LOGWARNING)
+    try:
+        if os.path.exists(zip_real_path):
+            # prefer special:// translation for Kodi builtin if possible
+            xbmc.executebuiltin(f'InstallFromZip({zip_real_path})')
+            return True
+        log(f'install_from_zip_path: zip not found {zip_real_path}', xbmc.LOGWARNING)
+    except Exception as e:
+        log(f'install_from_zip_path error: {e}', xbmc.LOGERROR)
     return False
 
 
-def force_refresh_addons():
+def refresh_addons():
     xbmc.executebuiltin('UpdateLocalAddons')
-    time.sleep(3)  # Let Kodi scan
+    xbmc.executebuiltin('UpdateAddonRepos')
+    # small delay to allow Kodi to start scanning
+    time.sleep(2)
+
+
+def unzip_direct_to_addons(zip_real_path):
+    """
+    Fallback: extract the zip directly to special://home/addons/
+    (useful when InstallFromZip doesn't register the addon)
+    """
+    try:
+        log(f'Fallback-extracting {zip_real_path} -> {ADDONS_DIR}')
+        with zipfile.ZipFile(zip_real_path, 'r') as zf:
+            # extract into a temporary folder then move to addons dir to avoid partial state
+            tmp_extract = os.path.join(TEMP_DIR.replace('special://', '').replace('\\', '/'), 'extract_tmp')
+            # use a real filesystem path for extraction
+            tmp_extract_real = os.path.join(os.path.dirname(translate(ADDONS_DIR)), 'tmp_extract_service')
+            if os.path.isdir(tmp_extract_real):
+                shutil.rmtree(tmp_extract_real, ignore_errors=True)
+            os.makedirs(tmp_extract_real, exist_ok=True)
+            zf.extractall(tmp_extract_real)
+            # move each top-level extracted folder into ADDONS_DIR
+            for entry in os.listdir(tmp_extract_real):
+                src = os.path.join(tmp_extract_real, entry)
+                if os.path.isdir(src):
+                    dst = os.path.join(translate(ADDONS_DIR), entry)
+                    # if dst exists, remove it first to avoid conflicts
+                    if os.path.exists(dst):
+                        shutil.rmtree(dst, ignore_errors=True)
+                    shutil.move(src, dst)
+                    log(f'Moved extracted folder {entry} -> addons/{entry}')
+            shutil.rmtree(tmp_extract_real, ignore_errors=True)
+        refresh_addons()
+        return True
+    except Exception as e:
+        log(f'unzip_direct_to_addons failed: {e}', xbmc.LOGERROR)
+        return False
+
+
+def fix_github_folder_prefix(expected_id):
+    """
+    GitHub zips often create folders with suffixes like '-master' or '-v1.2.3'.
+    Rename any folder that startswith expected_id + '-' to exactly expected_id.
+    Returns True if rename performed or expected_id is already present.
+    """
+    try:
+        addons_real = translate(ADDONS_DIR)
+        if not os.path.isdir(addons_real):
+            return False
+        # if already exists, nothing to do
+        if os.path.isdir(os.path.join(addons_real, expected_id)):
+            return True
+        # find candidate
+        for entry in os.listdir(addons_real):
+            if entry.startswith(expected_id + '-') or entry.startswith(expected_id + '_') or entry.startswith(expected_id + '.'):
+                src = os.path.join(addons_real, entry)
+                dst = os.path.join(addons_real, expected_id)
+                if os.path.exists(dst):
+                    shutil.rmtree(dst, ignore_errors=True)
+                log(f'Renaming {entry} -> {expected_id}')
+                os.rename(src, dst)
+                refresh_addons()
+                return True
+        # also try entries that contain expected_id as prefix but with different punctuation
+        for entry in os.listdir(addons_real):
+            if expected_id in entry and entry != expected_id:
+                src = os.path.join(addons_real, entry)
+                dst = os.path.join(addons_real, expected_id)
+                if os.path.isdir(src):
+                    log(f'Also renaming {entry} -> {expected_id}')
+                    if os.path.exists(dst):
+                        shutil.rmtree(dst, ignore_errors=True)
+                    os.rename(src, dst)
+                    refresh_addons()
+                    return True
+        return False
+    except Exception as e:
+        log(f'fix_github_folder_prefix error: {e}', xbmc.LOGERROR)
+        return False
 
 
 # ---------- AuraMOD helpers ----------
@@ -79,7 +186,6 @@ def get_latest_auramod_release():
                     download_url = asset.get('browser_download_url')
                     break
 
-            # Fallback: standard GitHub archive URL if no asset zip
             if not download_url and latest_version:
                 download_url = f'https://github.com/SerpentDrago/skin.auramod/archive/refs/tags/{latest_version}.zip'
 
@@ -100,7 +206,6 @@ def get_installed_auramod_version():
 
 def auto_update_auramod():
     global restart_required
-
     latest_version, download_url = get_latest_auramod_release()
     installed_version = get_installed_auramod_version()
     log(f'AuraMOD installed: {installed_version}, latest: {latest_version}')
@@ -114,23 +219,33 @@ def auto_update_auramod():
         return False
 
     notify(f'Installing/Updating AuraMOD to {latest_version}...', 5000)
-    auramod_zip = os.path.join(TEMP_DIR, 'auramod.zip')
-
-    if download(download_url, auramod_zip):
-        if install_zip(auramod_zip):
-            # wait for Kodi to actually register it
-            if wait_for_addon('skin.auramod', 30):
-                log(f'AuraMOD updated successfully to {latest_version}!')
-                xbmcvfs.delete(xbmcvfs.translatePath(auramod_zip))
-                restart_required = True
-                return True
-            else:
-                log('AuraMOD zip installed but skin.auramod not visible.', xbmc.LOGERROR)
-        else:
-            log('Failed to install AuraMOD from zip.', xbmc.LOGERROR)
-    else:
+    auramod_zip_special = os.path.join(TEMP_DIR, 'auramod.zip')
+    auramod_zip_real = download(download_url, auramod_zip_special)
+    if not auramod_zip_real:
         log('Failed to download AuraMOD zip.', xbmc.LOGERROR)
+        return False
 
+    # 1) try install via InstallFromZip
+    installed = install_from_zip_path(auramod_zip_real)
+    time.sleep(1)
+    refresh_addons()
+    if wait_for_addon('skin.auramod', 30):
+        log(f'AuraMOD updated successfully to {latest_version}!')
+        xbmcvfs.delete(translate(auramod_zip_special))
+        restart_required = True
+        return True
+
+    # 2) fallback: extract directly to addons folder + fix folder prefix
+    log('InstallFromZip did not register skin.auramod; extracting directly as fallback.')
+    if unzip_direct_to_addons(auramod_zip_real):
+        # try fix rename
+        fix_github_folder_prefix('skin.auramod')
+        if wait_for_addon('skin.auramod', 20):
+            log(f'AuraMOD updated successfully (fallback) to {latest_version}!')
+            xbmcvfs.delete(translate(auramod_zip_special))
+            restart_required = True
+            return True
+    log('Failed to install AuraMOD (both InstallFromZip and fallback).', xbmc.LOGERROR)
     return False
 
 
@@ -145,7 +260,6 @@ def get_latest_netflix_release():
                 if asset.get('name', '').endswith('.zip'):
                     download_url = asset.get('browser_download_url')
                     break
-
             log(f'Latest Netflix tag: {latest_version}, url: {download_url}')
             return latest_version, download_url
     except Exception as e:
@@ -176,21 +290,31 @@ def install_or_update_netflix():
         return False
 
     notify(f'Installing/Updating Netflix to {latest_version}...', 5000)
-    netflix_zip = os.path.join(TEMP_DIR, 'plugin.video.netflix.zip')
-
-    if download(download_url, netflix_zip):
-        if install_zip(netflix_zip):
-            if wait_for_addon('plugin.video.netflix', 30):
-                xbmcvfs.delete(xbmcvfs.translatePath(netflix_zip))
-                log(f'Netflix installed/updated to {latest_version}.')
-                return True
-            else:
-                log('Netflix zip installed but addon not visible yet.', xbmc.LOGWARNING)
-        else:
-            log('Failed to install Netflix from zip.', xbmc.LOGERROR)
-    else:
+    netflix_zip_special = os.path.join(TEMP_DIR, 'plugin.video.netflix.zip')
+    netflix_zip_real = download(download_url, netflix_zip_special)
+    if not netflix_zip_real:
         log('Failed to download Netflix zip.', xbmc.LOGERROR)
+        return False
 
+    # 1) attempt InstallFromZip
+    installed = install_from_zip_path(netflix_zip_real)
+    time.sleep(1)
+    refresh_addons()
+    if wait_for_addon('plugin.video.netflix', 30):
+        xbmcvfs.delete(translate(netflix_zip_special))
+        log(f'Netflix installed/updated to {latest_version}.')
+        return True
+
+    # 2) fallback_extract
+    log('InstallFromZip did not register plugin.video.netflix; extracting directly as fallback.')
+    if unzip_direct_to_addons(netflix_zip_real):
+        fix_github_folder_prefix('plugin.video.netflix')
+        if wait_for_addon('plugin.video.netflix', 20):
+            xbmcvfs.delete(translate(netflix_zip_special))
+            log(f'Netflix installed/updated (fallback) to {latest_version}.')
+            return True
+
+    log('Failed to install Netflix (both InstallFromZip and fallback).', xbmc.LOGERROR)
     return False
 
 
@@ -215,10 +339,10 @@ def main_setup():
     # Enable unknown sources
     xbmc.executebuiltin('SetSetting(addons.unknownsources, true)')
 
-    # Force refresh to see bundled addons
-    force_refresh_addons()
+    # Force refresh to see bundled addons (important)
+    refresh_addons()
 
-    # Install bundled addons first
+    # Install bundled addons first (from your repository)
     log('Installing bundled addons...')
     bundled = [
         'plugin.video.dstv.now',
@@ -257,7 +381,7 @@ def main_setup():
     # Initial AuraMOD install/update
     auto_update_auramod()
 
-    # Switch to AuraMOD and configure widgets (only if really there)
+    # Switch to AuraMOD and configure widgets (only if present)
     if wait_for_addon('skin.auramod', 20):
         xbmc.executebuiltin('ActivateWindow(Home)')
         time.sleep(5)
@@ -274,7 +398,7 @@ def main_setup():
     xbmc.executebuiltin('PVR.SetSetting(channelmanager, true)')
     xbmc.executebuiltin('SetSetting(videolibrary.updateonstartup, true)')
 
-    # Activate live addons for EPG, but only if installed
+    # Activate live addons for EPG only if installed
     for addon in ['samsung.tv.plus', 'pvr.plutotv']:
         if xbmc.getCondVisibility(f'System.HasAddon({addon})'):
             log(f'Running live addon: {addon}')
@@ -285,7 +409,7 @@ def main_setup():
             log(f'Skipping live addon (not installed): {addon}')
 
     # Drop self-start files to userdata
-    userdata = xbmcvfs.translatePath('special://profile/')
+    userdata = translate('special://profile/')
     autoexec_content = (
         "import xbmc\n"
         "import time\n"
@@ -307,25 +431,30 @@ def main_setup():
     </pvr>
 </advancedsettings>'''
 
-    with open(os.path.join(userdata, 'autoexec.py'), 'w', encoding='utf-8') as f:
-        f.write(autoexec_content)
-    with open(os.path.join(userdata, 'advancedsettings.xml'), 'w', encoding='utf-8') as f:
-        f.write(advanced_content)
-
-    log('Self-start files placed!')
+    try:
+        with open(os.path.join(userdata, 'autoexec.py'), 'w', encoding='utf-8') as f:
+            f.write(autoexec_content)
+        with open(os.path.join(userdata, 'advancedsettings.xml'), 'w', encoding='utf-8') as f:
+            f.write(advanced_content)
+        log('Self-start files placed!')
+    except Exception as e:
+        log(f'Failed writing self-start files: {e}', xbmc.LOGERROR)
 
     # Clean temp files
     for f in ['plugin.video.netflix.zip', 'auramod.zip']:
-        temp_file = os.path.join(TEMP_DIR, f)
-        translated = xbmcvfs.translatePath(temp_file)
-        if xbmcvfs.exists(translated):
-            xbmcvfs.delete(translated)
+        temp_file_special = os.path.join(TEMP_DIR, f)
+        try:
+            translated = translate(temp_file_special)
+            if os.path.exists(translated) or xbmcvfs.exists(translated):
+                xbmcvfs.delete(translate(temp_file_special))
+        except Exception:
+            pass
 
     log('Cooler Build complete!')
 
 
 def cleanup_service():
-    addon_path = xbmcvfs.translatePath(f'special://home/addons/{ADDON_ID}')
+    addon_path = translate(f'special://home/addons/{ADDON_ID}')
     if os.path.exists(addon_path):
         shutil.rmtree(addon_path)
     xbmc.executebuiltin(f'UninstallAddon({ADDON_ID})')
@@ -334,19 +463,15 @@ def cleanup_service():
 
 def run_service():
     global restart_required
-
     main_setup()
-
     # Start periodic update checker in background
     updater_thread = threading.Thread(target=periodic_update_check, daemon=True)
     updater_thread.start()
-
     # Restart Kodi only if AuraMOD was updated
     if restart_required:
         notify('Restarting Kodi to apply AuraMOD update...', 5000)
         time.sleep(3)
         xbmc.executebuiltin('RestartApp')
-
     # Keep service alive
     monitor = xbmc.Monitor()
     while not monitor.abortRequested():

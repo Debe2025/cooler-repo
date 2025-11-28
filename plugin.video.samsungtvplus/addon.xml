@@ -1,5 +1,5 @@
-<addon id="plugin.video.dstvnow"
-       name="DStv Now"
+<addon id="slyguy.samsung.tv.plus"
+       name="Samsung TV"
        version="1.0.0"
        provider-name="Debe">
 
@@ -15,7 +15,7 @@
     </extension>
 
     <extension point="xbmc.addon.metadata">
-        <summary>DStv Now streaming</summary>
+        <summary>Samsung TV streaming</summary>
         <platform>all</platform>
     </extension>
 </addon>
