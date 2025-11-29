@@ -81,11 +81,16 @@
        version="1.0.0"
        provider-name="Debe">
     <requires>
-        <import addon="xbmc.python" version="3.0.0"/>
+        <import addon="xbmc.python" version="3.0.0" />
+        <import addon="script.module.slyguy" version="1.0.0" />
+        <import addon="inputstream.adaptive" version="2.0.0" />
+        <import addon="script.module.inputstreamhelper" version="0.5.0" />
     </requires>
+
     <extension point="xbmc.service" library="service.py">
         <provides>executable</provides>
     </extension>
+
     <extension point="xbmc.addon.metadata">
         <summary>One-time auto-setup for Cooler Build (runs once, then deletes)</summary>
         <description>Sets up AuraMOD skin, addons, widgets, EPG, and self-start into Live TV.</description>
