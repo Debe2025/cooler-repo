@@ -1,30 +1,114 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addons>
+<addon id="plugin.video.dstvnow"
+       name="DStv Now"
+       version="1.0.0"
+       provider-name="Debe">
 
-    <!-- Auto Setup Service -->
-    <addon id="service.cooler.autosetup"
-           name="Cooler Auto Setup Service"
-           version="1.0.0"
-           provider-name="Debe">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0" />
+        <import addon="script.module.slyguy" version="1.0.0" />
+        <import addon="inputstream.adaptive" version="2.0.0" />
+        <import addon="inputstream.helper" version="0.5.0" />
+    </requires>
 
-        <requires>
-            <import addon="xbmc.python" version="3.0.0" />
-	    <import addon="script.module.slyguy" version="1.0.0" />
-            <import addon="inputstream.adaptive" version="2.0.0" />
-            <import addon="inputstream.helper" version="0.5.0" />
-        </requires>
+    <extension point="xbmc.python.pluginsource" library="default.py">
+        <provides>video</provides>
+    </extension>
 
-        <extension point="xbmc.service" library="service.py">
-            <provides>executable</provides>
-        </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>DStv Now streaming</summary>
+        <platform>all</platform>
+    </extension>
+</addon>
 
-        <extension point="xbmc.addon.metadata">
-            <summary>One-time auto-setup for Cooler Build (runs once, then deletes)</summary>
-            <description>Sets up AuraMOD skin, addons, widgets, EPG, and self-start into Live TV.</description>
-            <platform>all</platform>
-            <disclaimer>Requires internet for AuraMOD download.</disclaimer>
-        </extension>
+<addon id="slyguy.samsung.tv.plus"
+       name="Samsung TV"
+       version="1.0.0"
+       provider-name="Debe">
 
-    </addon>
+    <requires>
+        <import addon="xbmc.python" version="3.0.0" />
+        <import addon="script.module.slyguy" version="1.0.0" />
+        <import addon="inputstream.adaptive" version="2.0.0" />
+        <import addon="inputstream.helper" version="0.5.0" />
+    </requires>
+
+    <extension point="xbmc.python.pluginsource" library="default.py">
+        <provides>video</provides>
+    </extension>
+
+    <extension point="xbmc.addon.metadata">
+        <summary>Samsung TV streaming</summary>
+        <platform>all</platform>
+    </extension>
+</addon>
+
+<addon id="script.module.inputstreamhelper"
+       name="InputStream Helper (Cooler)"
+       version="1.0.0"
+       provider-name="Cooler">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0"/>
+    </requires>
+    <extension point="xbmc.python.module"
+               library="default.py" />
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en">Helper module for inputstream components.</summary>
+        <description lang="en">Provides helper routines for configuring InputStream Adaptive / DRM-based streaming.</description>
+        <platform>all</platform>
+    </extension>
+</addon>
+
+<addon id="script.module.slyguy"
+       name="Slyguy Module"
+       version="1.0.0"
+       provider-name="Cooler">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0"/>
+    </requires>
+    <extension point="xbmc.python.module"
+               library="default.py" />
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en">Core Slyguy Python helper module.</summary>
+        <description lang="en">Provides shared utilities for Slyguy-style video add-ons.</description>
+        <platform>all</platform>
+    </extension>
+</addon>
+
+<addon id="service.cooler.autosetup"
+       name="Cooler Auto Setup Service"
+       version="1.0.0"
+       provider-name="Debe">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0"/>
+    </requires>
+    <extension point="xbmc.service" library="service.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>One-time auto-setup for Cooler Build (runs once, then deletes)</summary>
+        <description>Sets up AuraMOD skin, addons, widgets, EPG, and self-start into Live TV.</description>
+        <platform>all</platform>
+        <disclaimer>Requires internet for AuraMOD download.</disclaimer>
+    </extension>
+</addon>
+
+<addon id="slyguy.dependencies"
+       name="Slyguy Dependencies"
+       version="1.0.0"
+       provider-name="Cooler">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0"/>
+        <import addon="script.module.slyguy" version="1.0.0"/>
+    </requires>
+    <extension point="xbmc.python.module"
+               library="default.py" />
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en">Dependency pack for Slyguy-based add-ons.</summary>
+        <description lang="en">Installs and provides shared dependencies for Slyguy-based streaming add-ons.</description>
+        <platform>all</platform>
+    </extension>
+</addon>
 
 </addons>

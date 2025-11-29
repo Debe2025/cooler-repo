@@ -1,0 +1,15 @@
+<addon id="script.module.slyguy"
+       name="Slyguy Module"
+       version="1.0.0"
+       provider-name="Cooler">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0"/>
+    </requires>
+    <extension point="xbmc.python.module"
+               library="default.py" />
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en">Core Slyguy Python helper module.</summary>
+        <description lang="en">Provides shared utilities for Slyguy-style video add-ons.</description>
+        <platform>all</platform>
+    </extension>
+</addon>
