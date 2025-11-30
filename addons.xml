@@ -82,7 +82,7 @@
 <addon id="script.module.slyguy"
        name="Slyguy Module"
        version="1.0.0"
-       provider-name="Cooler">
+       provider-name="Debe">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
     </requires>
