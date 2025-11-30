@@ -342,6 +342,7 @@ def main_setup():
         'script.module.slyguy',
         'slyguy.dependencies',
         'script.module.inputstreamhelper',
+        'script.module.addonsignals',
     ]
 
     for addon in bundled:
