@@ -26,7 +26,6 @@ AURAMOD_GITHUB_API = 'https://api.github.com/repos/SerpentDrago/skin.auramod/rel
 TEMP_DIR = xbmcvfs.translatePath('special://temp/')
 ADDONS_DIR = xbmcvfs.translatePath('special://home/addons/')
 UPDATE_INTERVAL_HOURS = 6
-restart_required = False
 
 
 def log(msg, level=xbmc.LOGINFO):
@@ -82,7 +81,6 @@ def install_from_zip_path(zip_real_path):
     """
     try:
         if os.path.exists(zip_real_path):
-            # prefer special:// translation for Kodi builtin if possible
             xbmc.executebuiltin(f'InstallFromZip({zip_real_path})')
             return True
         log(f'install_from_zip_path: zip not found {zip_real_path}', xbmc.LOGWARNING)
@@ -94,7 +92,6 @@ def install_from_zip_path(zip_real_path):
 def refresh_addons():
     xbmc.executebuiltin('UpdateLocalAddons')
     xbmc.executebuiltin('UpdateAddonRepos')
-    # small delay to allow Kodi to start scanning
     time.sleep(2)
 
 
@@ -107,19 +104,17 @@ def unzip_direct_to_addons(zip_real_path):
         log(f'Fallback-extracting {zip_real_path} -> {ADDONS_DIR}')
         with zipfile.ZipFile(zip_real_path, 'r') as zf:
             # extract into a temporary folder then move to addons dir to avoid partial state
-            tmp_extract = os.path.join(TEMP_DIR.replace('special://', '').replace('\\', '/'), 'extract_tmp')
-            # use a real filesystem path for extraction
             tmp_extract_real = os.path.join(os.path.dirname(translate(ADDONS_DIR)), 'tmp_extract_service')
             if os.path.isdir(tmp_extract_real):
                 shutil.rmtree(tmp_extract_real, ignore_errors=True)
             os.makedirs(tmp_extract_real, exist_ok=True)
             zf.extractall(tmp_extract_real)
             # move each top-level extracted folder into ADDONS_DIR
+            addons_real = translate(ADDONS_DIR)
             for entry in os.listdir(tmp_extract_real):
                 src = os.path.join(tmp_extract_real, entry)
                 if os.path.isdir(src):
-                    dst = os.path.join(translate(ADDONS_DIR), entry)
-                    # if dst exists, remove it first to avoid conflicts
+                    dst = os.path.join(addons_real, entry)
                     if os.path.exists(dst):
                         shutil.rmtree(dst, ignore_errors=True)
                     shutil.move(src, dst)
@@ -205,7 +200,6 @@ def get_installed_auramod_version():
 
 
 def auto_update_auramod():
-    global restart_required
     latest_version, download_url = get_latest_auramod_release()
     installed_version = get_installed_auramod_version()
     log(f'AuraMOD installed: {installed_version}, latest: {latest_version}')
@@ -226,25 +220,23 @@ def auto_update_auramod():
         return False
 
     # 1) try install via InstallFromZip
-    installed = install_from_zip_path(auramod_zip_real)
+    install_from_zip_path(auramod_zip_real)
     time.sleep(1)
     refresh_addons()
     if wait_for_addon('skin.auramod', 30):
         log(f'AuraMOD updated successfully to {latest_version}!')
         xbmcvfs.delete(translate(auramod_zip_special))
-        restart_required = True
         return True
 
     # 2) fallback: extract directly to addons folder + fix folder prefix
     log('InstallFromZip did not register skin.auramod; extracting directly as fallback.')
     if unzip_direct_to_addons(auramod_zip_real):
-        # try fix rename
         fix_github_folder_prefix('skin.auramod')
         if wait_for_addon('skin.auramod', 20):
             log(f'AuraMOD updated successfully (fallback) to {latest_version}!')
             xbmcvfs.delete(translate(auramod_zip_special))
-            restart_required = True
             return True
+
     log('Failed to install AuraMOD (both InstallFromZip and fallback).', xbmc.LOGERROR)
     return False
 
@@ -297,7 +289,7 @@ def install_or_update_netflix():
         return False
 
     # 1) attempt InstallFromZip
-    installed = install_from_zip_path(netflix_zip_real)
+    install_from_zip_path(netflix_zip_real)
     time.sleep(1)
     refresh_addons()
     if wait_for_addon('plugin.video.netflix', 30):
@@ -325,7 +317,7 @@ def periodic_update_check():
             log('Periodic check: AuraMOD update...')
             updated = auto_update_auramod()
             if updated:
-                notify('AuraMOD updated! Restart Kodi to apply changes.', 7000)
+                notify('AuraMOD updated! You may need to reload the skin.', 7000)
         except Exception as e:
             log(f'Error during periodic update: {e}', xbmc.LOGERROR)
         time.sleep(UPDATE_INTERVAL_HOURS * 3600)
@@ -379,17 +371,28 @@ def main_setup():
         wait_for_addon(addon, 10)
 
     # Initial AuraMOD install/update
-    auto_update_auramod()
+    auramod_changed = auto_update_auramod()
 
     # Switch to AuraMOD and configure widgets (only if present)
-    if wait_for_addon('skin.auramod', 20):
+    if wait_for_addon('skin.auramod', 30):
+        log('AuraMOD installed, loading skin...')
+        notify('Switching to AuraMOD skin...', 5000)
+
+        # Proper Kodi command to change skin
+        xbmc.executebuiltin('LoadSkin("skin.auramod")')
+
+        # Let the skin fully load
+        xbmc.sleep(8000)
+
         xbmc.executebuiltin('ActivateWindow(Home)')
-        time.sleep(5)
-        xbmc.executebuiltin('Skin.SetString(Skin.Current, skin.auramod)')
-        time.sleep(10)
+        xbmc.sleep(2000)
+
+        # Set AuraMOD-specific flags/widgets
         xbmc.executebuiltin('Skin.SetBool(HomeWidgetLiveTV, true)')
         xbmc.executebuiltin('Skin.SetBool(HomeWidgetMovies, true)')
         xbmc.executebuiltin('Skin.SetBool(HomeWidgetTVShows, true)')
+
+        log('AuraMOD skin loaded and widgets configured.')
     else:
         log('AuraMOD not installed – cannot switch skin.', xbmc.LOGWARNING)
 
@@ -446,7 +449,7 @@ def main_setup():
         try:
             translated = translate(temp_file_special)
             if os.path.exists(translated) or xbmcvfs.exists(translated):
-                xbmcvfs.delete(translate(temp_file_special))
+                xbmcvfs.delete(translated)
         except Exception:
             pass
 
@@ -462,16 +465,12 @@ def cleanup_service():
 
 
 def run_service():
-    global restart_required
     main_setup()
+
     # Start periodic update checker in background
     updater_thread = threading.Thread(target=periodic_update_check, daemon=True)
     updater_thread.start()
-    # Restart Kodi only if AuraMOD was updated
-    if restart_required:
-        notify('Restarting Kodi to apply AuraMOD update...', 5000)
-        time.sleep(3)
-        xbmc.executebuiltin('RestartApp')
+
     # Keep service alive
     monitor = xbmc.Monitor()
     while not monitor.abortRequested():
