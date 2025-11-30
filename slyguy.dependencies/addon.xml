@@ -1,7 +1,7 @@
 <addon id="slyguy.dependencies"
        name="Slyguy Dependencies"
        version="1.0.0"
-       provider-name="Cooler">
+       provider-name="Debe">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
         <import addon="script.module.slyguy" version="1.0.0"/>

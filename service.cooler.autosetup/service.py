@@ -3,7 +3,7 @@
 """
 Hardened service.cooler.autosetup
 - Installs AuraMOD and Netflix safely
-- Skips AddonSignals until Netflix is installed
+- Installs the Slyguy Repository first to ensure dependency is met.
 - Switches skin after installation instead of restarting Kodi
 """
 import xbmc
@@ -26,6 +26,8 @@ UPDATE_INTERVAL_HOURS = 6
 
 AURAMOD_GITHUB_API = 'https://api.github.com/repos/SerpentDrago/skin.auramod/releases/latest'
 NETFLIX_GITHUB_API = 'https://api.github.com/repos/CastagnaIT/plugin.video.netflix/releases/latest'
+SLYGUY_REPO_URL = 'https://slyguy.uk/repository.slyguy.zip'
+SLYGUY_REPO_ID = 'repository.slyguy'
 
 restart_required = False
 
@@ -64,18 +66,21 @@ def wait_for_addon(addon_id, timeout=30):
     return False
 
 def refresh_addons():
+    # Force Kodi to refresh its list of available add-ons and repositories
     xbmc.executebuiltin('UpdateLocalAddons')
     xbmc.executebuiltin('UpdateAddonRepos')
     time.sleep(2)
 
 def install_from_zip(zip_real_path):
     if os.path.exists(zip_real_path):
+        # Using InstallFromZip requires a special path, which translatePath handles
         xbmc.executebuiltin(f"InstallFromZip({zip_real_path})")
         return True
     log(f"Zip not found: {zip_real_path}", xbmc.LOGWARNING)
     return False
 
 def unzip_direct_to_addons(zip_real_path):
+    # (Existing fallback logic for manual unzip)
     try:
         log(f"Fallback extract {zip_real_path} -> {ADDONS_DIR}")
         with zipfile.ZipFile(zip_real_path, 'r') as zf:
@@ -96,6 +101,7 @@ def unzip_direct_to_addons(zip_real_path):
         return False
 
 def fix_github_folder_prefix(expected_id):
+    # (Existing logic for renaming GitHub zip folders)
     try:
         addons_real = translate(ADDONS_DIR)
         if os.path.isdir(os.path.join(addons_real, expected_id)):
@@ -114,8 +120,37 @@ def fix_github_folder_prefix(expected_id):
         log(f"fix_github_folder_prefix error: {e}", xbmc.LOGERROR)
         return False
 
+# ---------- Slyguy Repository ----------
+def install_slyguy_repo():
+    if wait_for_addon(SLYGUY_REPO_ID, 1):
+        log("Slyguy Repository is already installed.")
+        return True
+    
+    notify("Installing Slyguy Repository...", 5000)
+    
+    zip_special = os.path.join(TEMP_DIR, "repository.slyguy.zip")
+    zip_real = download(SLYGUY_REPO_URL, zip_special)
+    
+    if not zip_real:
+        notify("Failed to download Slyguy Repository.", 7000)
+        return False
+        
+    install_from_zip(zip_real)
+    time.sleep(2)
+    refresh_addons()
+    
+    if wait_for_addon(SLYGUY_REPO_ID, 20):
+        log("Slyguy Repository installed successfully.")
+        xbmcvfs.delete(translate(zip_special))
+        return True
+    else:
+        notify("Slyguy Repository installation failed.", 7000)
+        return False
+
+
 # ---------- AuraMOD ----------
 def get_latest_auramod_release():
+    # (Existing function)
     try:
         with urllib.request.urlopen(AURAMOD_GITHUB_API) as resp:
             data = json.load(resp)
@@ -129,6 +164,7 @@ def get_latest_auramod_release():
         return None, None
 
 def get_installed_auramod_version():
+    # (Existing function)
     try:
         addon = xbmcaddon.Addon('skin.auramod')
         return addon.getAddonInfo('version')
@@ -136,6 +172,7 @@ def get_installed_auramod_version():
         return None
 
 def auto_update_auramod():
+    # (Existing function)
     global restart_required
     latest_version, url = get_latest_auramod_release()
     installed = get_installed_auramod_version()
@@ -164,6 +201,7 @@ def auto_update_auramod():
 
 # ---------- Netflix ----------
 def get_latest_netflix_release():
+    # (Existing function)
     try:
         with urllib.request.urlopen(NETFLIX_GITHUB_API) as resp:
             data = json.load(resp)
@@ -175,6 +213,7 @@ def get_latest_netflix_release():
         return None, None
 
 def get_installed_netflix_version():
+    # (Existing function)
     try:
         addon = xbmcaddon.Addon('plugin.video.netflix')
         return addon.getAddonInfo('version')
@@ -182,6 +221,7 @@ def get_installed_netflix_version():
         return None
 
 def install_or_update_netflix():
+    # (Existing function)
     tag, url = get_latest_netflix_release()
     installed = get_installed_netflix_version()
     if not url or installed == tag:
@@ -214,17 +254,26 @@ def main_setup():
     xbmc.executebuiltin("SetSetting(addons.unknownsources, true)")
     refresh_addons()
 
-    # Install bundled addons
+    # 1. Install the Slyguy Repository FIRST
+    repo_installed = install_slyguy_repo()
+    if not repo_installed:
+        log("Slyguy installation cannot proceed as repository failed to install.", xbmc.LOGERROR)
+        notify("Build setup failed: Slyguy Repository error.", 10000)
+        return # Stop setup if essential repo is missing
+
+    # 2. Install bundled addons from the now-installed Slyguy Repository
     for addon in [
+        # These add-ons are now correctly referenced against the SLYGUY_REPO_ID
         'plugin.video.dstv.now',
         'samsung.tv.plus',
         'script.module.slyguy',
         'slyguy.dependencies',
         'script.module.inputstreamhelper',
     ]:
-        xbmc.executebuiltin(f"InstallFromRepository(repository.myrepo, {addon})")
+        # **CORRECTION**: Use the correct, installed repository ID
+        xbmc.executebuiltin(f"InstallFromRepository({SLYGUY_REPO_ID}, {addon})")
         wait_for_addon(addon, 20)
-
+        
     # Install Netflix safely
     install_or_update_netflix()
 
