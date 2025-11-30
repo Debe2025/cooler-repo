@@ -44,6 +44,25 @@
     </extension>
 </addon>
 
+<addon id="script.module.addonsignals"
+       name="Addon Signals"
+       version="1.0.0"
+       provider-name="Debe">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0" />
+    </requires>
+
+    <extension point="xbmc.python.module" library="default.py" />
+
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en">Simple signalling between Kodi add-ons.</summary>
+        <description lang="en">
+            Provides a simple messaging/signalling system for coordinating different Kodi add-ons.
+        </description>
+        <platform>all</platform>
+    </extension>
+</addon>
+
 <addon id="script.module.inputstreamhelper"
        name="InputStream Helper (Cooler)"
        version="1.0.0"
